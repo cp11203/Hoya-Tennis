@@ -1,169 +1,415 @@
-package com.example.prasad
+package com.example.project1
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.prasad.ui.theme.PrasadTheme
-
+import com.example.project1.ui.theme.Project1Theme
+import java.text.SimpleDateFormat
+import java.util.*
+/**
+ * Main entry point of the application. It sets up the UI content.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            PrasadTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    SnackRecommendationApp(
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            Project1Theme {
+                // Sets up the navigation for the app (register, login, home)
+                AppNavigator()
             }
         }
     }
 }
-
+/**
+ * The navigator composable function controls the flow between registration, login, and the main home page.
+ */
 @Composable
-fun SnackRecommendationApp(modifier: Modifier = Modifier) {
-    var mood by remember { mutableStateOf("") }
-    var bodyGoal by remember { mutableStateOf(0f) } // 0 = weight loss, 1 = weight gain
-    var isVegetarian by remember { mutableStateOf(false) }
-    var hasNutAllergy by remember { mutableStateOf(false) }
-    var hasDairyAllergy by remember { mutableStateOf(false) }
-    var prefersSweet by remember { mutableStateOf(true) } // true = sweet, false = savory
+fun AppNavigator() {
+    var isRegistered by remember { mutableStateOf(false) }
+    var isLoggedIn by remember { mutableStateOf(false) }
+    var currentUser by remember { mutableStateOf<Player?>(null) }
+    var currentPage by remember { mutableStateOf("register") }
 
-    var recommendation by remember { mutableStateOf("") }
+    // Control which screen (registration, login, or home) to display based on the user's state.
+    when (currentPage) {
+        "register" -> {
+            RegistrationScreen(
+                onRegister = {
+                    isRegistered = true
+                    currentPage = "login" // After registering, move to login screen.
+                },
+                onSwitchToLogin = {
+                    currentPage = "login"
+                }
+            )
+        }
+        "login" -> {
+            LoginScreen(
+                onLogin = { player ->
+                    isLoggedIn = true
+                    currentUser = player // Sets the logged-in user.
+                    currentPage = "home" // After login, navigate to home screen.
+                },
+                onSwitchToRegister = {
+                    currentPage = "register"
+                }
+            )
+        }
+        "home" -> {
+            currentUser?.let {
+                HoyaTennisApp(currentUser = it, onLogout = {
+                    isLoggedIn = false
+                    currentPage = "login"
+                    currentUser = null // Clears the user on logout.
+                })
+            }
+        }
+    }
+}
+/**
+ * The RegistrationScreen allows users to create an account by entering their NetID, password, and phone number.
+ * After successful registration, the user's information is stored.
+ */
+@Composable
+fun RegistrationScreen(onRegister: () -> Unit, onSwitchToLogin: () -> Unit) {
+    var netId by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var registrationError by remember { mutableStateOf<String?>(null) }
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        // Mood Input
-        Text(text = "Enter your mood:")
-        TextField(
-            value = mood,
-            onValueChange = { mood = it },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text)
-        )
+        Text("Hoya Tennis Registration", style = MaterialTheme.typography.headlineMedium)
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Body Goal Slider
-        Text(text = "Select your body goal:")
-        Slider(
-            value = bodyGoal,
-            onValueChange = { bodyGoal = it },
-            valueRange = 0f..1f,
-            steps = 1,
+        // Input field for NetID.
+        TextField(
+            value = netId,
+            onValueChange = { netId = it },
+            label = { Text("Enter NetID") },
             modifier = Modifier.fillMaxWidth()
         )
-        Text(text = if (bodyGoal == 0f) "Weight Loss" else "Weight Gain")
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Allergies Checkboxes
-        Text(text = "Allergies (select if applicable):")
-        Row {
-            Checkbox(
-                checked = hasNutAllergy,
-                onCheckedChange = { hasNutAllergy = it }
-            )
-            Text(text = "Nut Allergy")
-        }
-        Row {
-            Checkbox(
-                checked = hasDairyAllergy,
-                onCheckedChange = { hasDairyAllergy = it }
-            )
-            Text(text = "Dairy Allergy")
-        }
+        // Input field for password.
+        TextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Enter Password") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Vegetarian Switch
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text(text = "Vegetarian?")
-            Switch(
-                checked = isVegetarian,
-                onCheckedChange = { isVegetarian = it }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Sweet or Savory Buttons
-        Text(text = "Do you prefer:")
-        Row {
-            Button(onClick = { prefersSweet = true }) {
-                Text(text = "Sweet")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = { prefersSweet = false }) {
-                Text(text = "Savory")
-            }
-        }
+        // Input field for number.
+        TextField(
+            value = phoneNumber,
+            onValueChange = { phoneNumber = it },
+            label = { Text("Enter Phone Number") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Snack Recommendation Button
+        // Register button. Adds the player if they are not already registered.
         Button(
             onClick = {
-                try {
-                    recommendation = getSnackRecommendation(
-                        mood, bodyGoal, isVegetarian, hasNutAllergy, hasDairyAllergy, prefersSweet
-                    )
-                } catch (e: Exception) {
-                    recommendation = "Error occurred: ${e.message}"
+                if (registeredUsers.none { it.name == netId }) {
+                    registeredUsers.add(Player(netId, mutableListOf(), password, phoneNumber))
+                    registrationError = null
+                    onRegister()
+                } else {
+                    registrationError = "NetID already registered"
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(text = "Recommend Snack")
+            Text("Register")
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        // Button to switch to login screen.
+        Button(onClick = onSwitchToLogin, modifier = Modifier.fillMaxWidth()) {
+            Text("Already have an account? Log in")
+        }
+
+        registrationError?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Error: $it", color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+/**
+ * The LoginScreen allows users to log in by entering their NetID and password.
+ * Upon successful login, the current user is set.
+ */
+@Composable
+fun LoginScreen(onLogin: (Player) -> Unit, onSwitchToRegister: () -> Unit) {
+    var netId by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var loginError by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Hoya Tennis Login", style = MaterialTheme.typography.headlineMedium)
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Display Recommendation
-        Text(text = "Snack Recommendation: $recommendation")
-    }
-}
+        TextField(
+            value = netId,
+            onValueChange = { netId = it },
+            label = { Text("Enter NetID") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
-fun getSnackRecommendation(
-    mood: String,
-    bodyGoal: Float,
-    isVegetarian: Boolean,
-    hasNutAllergy: Boolean,
-    hasDairyAllergy: Boolean,
-    prefersSweet: Boolean
-): String {
-    // Example logic for snack recommendation
-    return try {
-        when {
-            mood.contains("happy", ignoreCase = true) -> "Fruit Salad"
-            bodyGoal == 0f && !hasNutAllergy -> "Almonds"
-            bodyGoal == 1f && !isVegetarian -> "Protein Bar"
-            prefersSweet -> "Chocolate"
-            !prefersSweet -> "Chips"
-            else -> "Granola Bar"
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Enter Password") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        // Login button. Authenticates the user by checking if their credentials match the registered users.
+        Button(onClick = {
+            val user = registeredUsers.find { it.name == netId && it.password == password }
+            if (user != null) {
+                onLogin(user)
+            } else {
+                loginError = "Invalid NetID or Password"
+            }
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text("Login")
         }
-    } catch (e: Exception) {
-        throw Exception("Invalid input. Please try again.")
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(onClick = onSwitchToRegister, modifier = Modifier.fillMaxWidth()) {
+            Text("Don't have an account? Register")
+        }
+
+        loginError?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Error: $it", color = MaterialTheme.colorScheme.error)
+        }
     }
 }
+/**
+ * HoyaTennisApp allows logged-in users to select up to three dates for tennis matches, find available players, and match with them.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HoyaTennisApp(currentUser: Player, onLogout: () -> Unit) {
+    // State to store selected dates
+    var selectedDates by remember { mutableStateOf(mutableListOf<String>()) }
+    var matchedPlayers by remember { mutableStateOf(listOf<Player>()) }
+
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    // Function to show date and time picker
+    fun showDateTimePicker() {
+        if (selectedDates.size < 3) {
+            DatePickerDialog(
+                context,
+                { _, year, month, dayOfMonth ->
+                    calendar.set(Calendar.YEAR, year)
+                    calendar.set(Calendar.MONTH, month)
+                    calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                    TimePickerDialog(
+                        context,
+                        { _, hourOfDay, minute ->
+                            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                            calendar.set(Calendar.MINUTE, minute)
+                            val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                            val selectedDateTime = dateTimeFormat.format(calendar.time)
+
+                            // Check if the selected time is already present
+                            if (!selectedDates.contains(selectedDateTime)) {
+                                // Add the selected date/time and trigger recomposition
+                                selectedDates = (selectedDates + selectedDateTime).toMutableList()
+                            }
+                        },
+                        calendar.get(Calendar.HOUR_OF_DAY),
+                        calendar.get(Calendar.MINUTE),
+                        true
+                    ).show()
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }
+    }
+
+    // Function to find matches
+    fun findMatches(): List<Player> {
+        val rangeMillis = 30 * 60 * 1000 // 30 minutes in milliseconds
+
+        return playerAvailabilityDatabase.filter { player ->
+            player.availability.any { availability ->
+                selectedDates.any { selectedDate ->
+                    val selectedTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(selectedDate)
+                    val playerTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(availability)
+                    playerTime?.let {
+                        Math.abs(it.time - selectedTime!!.time) <= rangeMillis && player.name != currentUser.name
+                    } ?: false
+                }
+            }
+        }
+    }
+
+    fun updatePlayerAvailability() {
+        val existingEntries = playerAvailabilityDatabase.filter { it.name == currentUser.name && it.availability.any { date -> selectedDates.contains(date) } }
+
+        // Remove matching availability for the current user
+        existingEntries.forEach { entry ->
+            entry.availability.removeAll { date -> selectedDates.contains(date) }
+            if (entry.availability.isEmpty()) {
+                playerAvailabilityDatabase.remove(entry)
+            }
+        }
+
+        // Add or update availability for the current user
+        currentUser.availability = selectedDates.toMutableList()
+        playerAvailabilityDatabase.add(currentUser)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("Hoya Tennis 🎾") })
+        },
+        content = { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                Text("Welcome, ${currentUser.name}", style = MaterialTheme.typography.titleMedium)
+                Text("Enter upto three dates of availability and get matched for tennis games with other hoyas!", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                // Button to show date/time picker
+                Button(onClick = { showDateTimePicker() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Select Date & Time")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Display selected dates immediately
+                if (selectedDates.isNotEmpty()) {
+                    Text("Selected Dates & Times:", style = MaterialTheme.typography.bodyMedium)
+                    selectedDates.forEach { date ->
+                        Text(date, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Find a match button
+                Button(
+                    onClick = {
+                        if (selectedDates.isNotEmpty()) {
+                            updatePlayerAvailability()
+                            matchedPlayers = findMatches()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Find a Match!")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Display matched players
+                if (matchedPlayers.isNotEmpty()) {
+                    Text("Matched Players:", style = MaterialTheme.typography.titleMedium)
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(matchedPlayers) { player ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                elevation = CardDefaults.cardElevation(4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(player.name, style = MaterialTheme.typography.bodyLarge)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Phone: ${player.phoneNumber}", style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Available on: ${player.availability.joinToString()}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No matches found. Try a different time.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Logout button
+                Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+                    Text("Logout")
+                }
+            }
+        }
+    )
+}
+// Data class representing a tennis player.
+data class Player(val name: String,
+                  var availability: MutableList<String>,
+                  val password: String,
+                  val phoneNumber: String)
+
+val registeredUsers = mutableListOf<Player>()
+val playerAvailabilityDatabase = mutableListOf<Player>()
 
 @Preview(showBackground = true)
 @Composable
-fun SnackRecommendationAppPreview() {
-    PrasadTheme {
-        SnackRecommendationApp()
+fun HoyaTennisAppPreview() {
+    Project1Theme {
+        AppNavigator()
     }
 }
