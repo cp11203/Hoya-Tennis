@@ -1,0 +1,169 @@
+package com.example.prasad
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.prasad.ui.theme.PrasadTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            PrasadTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    SnackRecommendationApp(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SnackRecommendationApp(modifier: Modifier = Modifier) {
+    var mood by remember { mutableStateOf("") }
+    var bodyGoal by remember { mutableStateOf(0f) } // 0 = weight loss, 1 = weight gain
+    var isVegetarian by remember { mutableStateOf(false) }
+    var hasNutAllergy by remember { mutableStateOf(false) }
+    var hasDairyAllergy by remember { mutableStateOf(false) }
+    var prefersSweet by remember { mutableStateOf(true) } // true = sweet, false = savory
+
+    var recommendation by remember { mutableStateOf("") }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Mood Input
+        Text(text = "Enter your mood:")
+        TextField(
+            value = mood,
+            onValueChange = { mood = it },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Body Goal Slider
+        Text(text = "Select your body goal:")
+        Slider(
+            value = bodyGoal,
+            onValueChange = { bodyGoal = it },
+            valueRange = 0f..1f,
+            steps = 1,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(text = if (bodyGoal == 0f) "Weight Loss" else "Weight Gain")
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Allergies Checkboxes
+        Text(text = "Allergies (select if applicable):")
+        Row {
+            Checkbox(
+                checked = hasNutAllergy,
+                onCheckedChange = { hasNutAllergy = it }
+            )
+            Text(text = "Nut Allergy")
+        }
+        Row {
+            Checkbox(
+                checked = hasDairyAllergy,
+                onCheckedChange = { hasDairyAllergy = it }
+            )
+            Text(text = "Dairy Allergy")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Vegetarian Switch
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(text = "Vegetarian?")
+            Switch(
+                checked = isVegetarian,
+                onCheckedChange = { isVegetarian = it }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Sweet or Savory Buttons
+        Text(text = "Do you prefer:")
+        Row {
+            Button(onClick = { prefersSweet = true }) {
+                Text(text = "Sweet")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = { prefersSweet = false }) {
+                Text(text = "Savory")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Snack Recommendation Button
+        Button(
+            onClick = {
+                try {
+                    recommendation = getSnackRecommendation(
+                        mood, bodyGoal, isVegetarian, hasNutAllergy, hasDairyAllergy, prefersSweet
+                    )
+                } catch (e: Exception) {
+                    recommendation = "Error occurred: ${e.message}"
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(text = "Recommend Snack")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Display Recommendation
+        Text(text = "Snack Recommendation: $recommendation")
+    }
+}
+
+fun getSnackRecommendation(
+    mood: String,
+    bodyGoal: Float,
+    isVegetarian: Boolean,
+    hasNutAllergy: Boolean,
+    hasDairyAllergy: Boolean,
+    prefersSweet: Boolean
+): String {
+    // Example logic for snack recommendation
+    return try {
+        when {
+            mood.contains("happy", ignoreCase = true) -> "Fruit Salad"
+            bodyGoal == 0f && !hasNutAllergy -> "Almonds"
+            bodyGoal == 1f && !isVegetarian -> "Protein Bar"
+            prefersSweet -> "Chocolate"
+            !prefersSweet -> "Chips"
+            else -> "Granola Bar"
+        }
+    } catch (e: Exception) {
+        throw Exception("Invalid input. Please try again.")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SnackRecommendationAppPreview() {
+    PrasadTheme {
+        SnackRecommendationApp()
+    }
+}
